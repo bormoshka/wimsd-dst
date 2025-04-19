@@ -213,7 +213,7 @@ local function GetPlayerByUserID(userid)
     TraceLog("No player found for userid:", userid)
     return nil
 end
-
+-- Unused function
 local function GetMissingIngredients(recipe, player)
     local missing = {}
     for _, ingredient in ipairs(recipe.ingredients) do
@@ -650,110 +650,65 @@ end)
 --------------------------------------------
 -- Хук на виджет ингредиента в меню крафта
 --------------------------------------------
-local function highlightIngredients(owner, ingredients)
-    LazyTraceLog("highlightMissingItems:", ingredients)
 
-    local ingredients_missing = {}  -- простой список имён
-    -- будем передавать на сервер всё. Пусть он ищет и возвращает всё что мы запросили, а клиент уже потом разберется
-    -- for name, amount in pairs(ingredients) do
-    --     local has = HasItemsInInventory(owner, name, amount)
-    --     if not has then
-    --         table.insert(ingredients_missing, name)
-    --     else
-    --         table.insert(ingredients_in_stock, name)
-    --     end
-    --     TraceLog("CRFT_DTLS Checking ingredient:", name, "has:", has, "amount:", amount)
-    -- end
-    LazyTraceLog("Searching for missing ingredients:", ingredients_missing)
-    FindItem(owner, ingredients)
-end
+env.AddClassPostConstruct("widgets/redux/craftingmenu_widget", function(self, owner, crafting_hud, height)
+    DebugLog("craftingmenu_widget INIT")
+    local hud_close = self.crafting_hud.Close
+    function self.crafting_hud:Close(...)
+        TraceLog("craftingmenu_widget:crafting_hud Close")
+        UnHighlightAll()
+        return hud_close(self, ...)
+    end
+end)
+env.AddClassPostConstruct("widgets/redux/craftingmenu_details", function(self, owner, parent_widget, panel_width, panel_height)
+    TraceLog("UseGamepad widgets/redux/craftingmenu_details: Constructed with", self, owner, parent_widget, panel_width, panel_height)
+    local _Refresh = self.UpdateBuildButton
 
-if not useGamepad then
-    InfoLog("For now it is gamepad only mod")
-    -- env.AddClassPostConstruct("widgets/ingredientui", function(self, atlas, image, quantity, on_hand, has_enough, name, owner, recipe_type)
-    --     -- Сохраняем ссылку на рецепт для использования в поиске
-    --     DebugLog("notUseGamepad ingredientui: Constructed with", atlas, image, quantity, on_hand, has_enough, name, owner, recipe_type)
-    --     self.product = recipe_type
-    --
-    --     local _OnGainFocus = self.OnGainFocus
-    --     local _OnLoseFocus = self.OnLoseFocus
-    --
-    --     function self:OnGainFocus(...)
-    --         DebugLog("ingredientui: OnGainFocus, product:", tostring(self.product))
-    --         if self.product and owner and owner.userid then
-    --             FindItem(owner, { self.product })
-    --         end
-    --
-    --         return _OnGainFocus(self, ...)
-    --     end
-    --
-    --     function self:OnLoseFocus(...)
-    --         DebugLog("ingredientui: OnLoseFocus, clearing highlight")
-    --         UnHighlightAll()
-    --         return _OnLoseFocus(self, ...)
-    --     end
-    --
-    -- end)
-else
-    env.AddClassPostConstruct("widgets/redux/craftingmenu_widget", function(self, owner, crafting_hud, height)
-        DebugLog("craftingmenu_widget INIT")
-        local hud_close = self.crafting_hud.Close
-        function self.crafting_hud:Close(...)
-            TraceLog("craftingmenu_widget:crafting_hud Close")
-            UnHighlightAll()
-            return hud_close(self, ...)
-        end
-    end)
-    env.AddClassPostConstruct("widgets/redux/craftingmenu_details", function(self, owner, parent_widget, panel_width, panel_height)
-        TraceLog("UseGamepad widgets/redux/craftingmenu_details: Constructed with", self, owner, parent_widget, panel_width, panel_height)
-        local _Refresh = self.UpdateBuildButton
+    function self:UpdateBuildButton(...)
+        TraceLog("widgets/redux/craftingmenu_details UpdateBuildButton")
 
-        function self:UpdateBuildButton(...)
-            TraceLog("widgets/redux/craftingmenu_details UpdateBuildButton")
+        local result = _Refresh(self, ...)
+        is_in_craft = self.parent_widget.enabled
 
-            local result = _Refresh(self, ...)
-            is_in_craft = self.parent_widget.enabled
-
-            TraceLog("Parent state", self.parent_widget.enabled)
-            if is_in_craft then
-                if self.data then
-                    -- DebugLog("self.data", serialize(self.data))
-                    LazyTraceLog("self.data.recipe.ingredients", self.data.recipe.ingredients)
-                    if self.data.recipe.ingredients then
-                        FindItem(owner, ConvertToIngredientsMap(self.data.recipe.ingredients))
-                    end
+        TraceLog("Parent state", self.parent_widget.enabled)
+        if is_in_craft then
+            if self.data then
+                -- DebugLog("self.data", serialize(self.data))
+                LazyTraceLog("self.data.recipe.ingredients", self.data.recipe.ingredients)
+                if self.data.recipe.ingredients then
+                    FindItem(owner, ConvertToIngredientsMap(self.data.recipe.ingredients))
                 end
             end
-
-            return result
-        end
-        DebugLog("widgets/crafting AddClassPostConstruct")
-    end)
-    env.AddClassPostConstruct("widgets/redux/craftingmenu_pinslot", function(self, owner, craftingmenu, slot_num, pin_data)
-        TraceLog("UseGamepad widgets/redux/craftingmenu_pinslot: Constructed with", owner, craftingmenu, slot_num, pin_data)
-        local _super = self.ShowRecipe
-
-        function self:ShowRecipe(...)
-            local result = _super(self, ...)
-            local recipe_data = self.craftingmenu:GetRecipeState(self.recipe_name)
-            if recipe_data then
-                LazyTraceLog("recipe", recipe_data.recipe)
-                FindItem(owner, ConvertToIngredientsMap(recipe_data.recipe.ingredients))
-            end
-
-            return result
-        end
-        local _super2 = self.HideRecipe
-
-        function self:HideRecipe(...)
-            local result = _super2(self, ...)
-            UnHighlightAll()
-            return result
         end
 
-        DebugLog("widgets/crafting AddClassPostConstruct")
-    end)
-end
+        return result
+    end
+    DebugLog("widgets/crafting AddClassPostConstruct")
+end)
+env.AddClassPostConstruct("widgets/redux/craftingmenu_pinslot", function(self, owner, craftingmenu, slot_num, pin_data)
+    TraceLog("UseGamepad widgets/redux/craftingmenu_pinslot: Constructed with", owner, craftingmenu, slot_num, pin_data)
+    local _super = self.ShowRecipe
+
+    function self:ShowRecipe(...)
+        local result = _super(self, ...)
+        local recipe_data = self.craftingmenu:GetRecipeState(self.recipe_name)
+        if recipe_data then
+            LazyTraceLog("recipe", recipe_data.recipe)
+            FindItem(owner, ConvertToIngredientsMap(recipe_data.recipe.ingredients))
+        end
+
+        return result
+    end
+    local _super2 = self.HideRecipe
+
+    function self:HideRecipe(...)
+        local result = _super2(self, ...)
+        UnHighlightAll()
+        return result
+    end
+
+    DebugLog("widgets/crafting AddClassPostConstruct")
+end)
 
 local function isCraftPotPresent()
     GLOBAL.require "widgets/foodrecipepopup"
@@ -762,87 +717,66 @@ end
 
 if GLOBAL.pcall(isCraftPotPresent) then
     DebugLog("Craft Pot Mod detected")
-    -- local cooking = GLOBAL.require("cooking")
-    -- local tag_to_ingredient = {}
-
-    -- for item, data in pairs(cooking.ingredients) do
-    --     local tags = data.tags
-    --     if tags then
-    --         for tag, _ in pairs(tags) do
-    --             tag_to_ingredient[tag] = tag_to_ingredient[tag] or {}
-    --             table.insert(tag_to_ingredient[tag], item)
-    --         end
-    --     end
-    -- end
-
     AddClassPostConstruct("widgets/foodrecipepopup", function(self, owner, recipe)
         local _Update = self.Update
         function self:Update(...)
-            owner:DoTaskInTime(0, function()
-                UnHighlightAll()
-                if recipe ~= nil then
-                    local converted_recipe = {}  -- [ingredient_name] = amount
-                    local tags = {}
+            UnHighlightAll()
+            if recipe ~= nil then
+                local converted_recipe = {}  -- [ingredient_name] = amount
+                local tags = {}
 
-                    local function transformToTables(item)
-                        local amount = item.amt or 1
-                        if amount < 1 then
-                            amount = 1
-                        end
-
-                        local function add(table, name)
-                            if type(name) ~= "string" then
-                                WarnLog("Invalid name type, expected string but got:", type(name), serialize(name))
-                                return
-                            end
-                            table[name] = (table[name] or 0) + amount
-                        end
-
-                        if item.name then
-                            if type(item.name) == "table" then
-                                for _, n in ipairs(item.name) do
-                                    add(converted_recipe, n)
-                                end
-                            else
-                                add(converted_recipe, item.name)
-                            end
-                        elseif item.tag then
-                            TraceLog("item.tag", item.tag)
-                            add(tags, item.tag)
-                            -- local resolved_name = tag_to_ingredient[item.tag]
-                            -- if resolved_name then
-                            --     add(resolved_name)
-                            -- else
-                            --     WarnLog("Unknown tag:", item.tag)
-                            -- end
-                        else
-                            WarnLog("item.name is missing", serialize(item))
-                        end
+                local function transformToTables(item)
+                    local amount = item.amt or 1
+                    if amount < 1 then
+                        amount = 1
                     end
 
-                    local function handleMix(mix)
-                        -- Если mix – не таблица, пропускаем
-                        if type(mix) ~= "table" then
+                    local function add(table, name)
+                        if type(name) ~= "string" then
+                            WarnLog("Invalid name type, expected string but got:", type(name), serialize(name))
                             return
                         end
-
-                        -- Если текущая таблица имеет ключ "name" или "tag", считаем, что это единичный ингредиент
-                        if mix.name or mix.tag then
-                            transformToTables(mix)
-                        else
-                            -- Иначе перебираем элементы таблицы
-                            for _, v in pairs(mix) do
-                                handleMix(v)
-                            end
-                        end
+                        table[name] = (table[name] or 0) + amount
                     end
 
-                    handleMix(recipe.minmix)
-                    LazyTraceLog("foodrecipepopup converted_recipe:", converted_recipe)
-                    LazyTraceLog("foodrecipepopup converted_recipe:", tags)
-                    FindItem(owner, converted_recipe, tags)
+                    if item.name then
+                        if type(item.name) == "table" then
+                            for _, n in ipairs(item.name) do
+                                add(converted_recipe, n)
+                            end
+                        else
+                            add(converted_recipe, item.name)
+                        end
+                    elseif item.tag then
+                        TraceLog("item.tag", item.tag)
+                        add(tags, item.tag)
+                    else
+                        WarnLog("item.name is missing", serialize(item))
+                    end
                 end
-            end)
+
+                local function handleMix(mix)
+                    -- Если mix – не таблица, пропускаем
+                    if type(mix) ~= "table" then
+                        return
+                    end
+
+                    -- Если текущая таблица имеет ключ "name" или "tag", считаем, что это единичный ингредиент
+                    if mix.name or mix.tag then
+                        transformToTables(mix)
+                    else
+                        -- Иначе перебираем элементы таблицы
+                        for _, v in pairs(mix) do
+                            handleMix(v)
+                        end
+                    end
+                end
+
+                handleMix(recipe.minmix)
+                LazyTraceLog("foodrecipepopup converted_recipe:", converted_recipe)
+                LazyTraceLog("foodrecipepopup converted_recipe:", tags)
+                FindItem(owner, converted_recipe, tags)
+            end
 
             return _Update(self, ...)
         end
@@ -863,18 +797,5 @@ if GLOBAL.pcall(isCraftPotPresent) then
         end
     end)
 end
-
---------------------------------------------
--- Хук на виджет группы вкладок (например, для сброса подсветки при смене вкладки)
---------------------------------------------
--- Не триггерится на гемпаде
---AddClassPostConstruct("widgets/tabgroup", function(self)
---    local _DeselectAll = self.DeselectAll
---    function self:DeselectAll(...)
---        DebugLog("tabgroup: DeselectAll invoked, clearing highlight")
---        FindItem(ThePlayer, nil)
---        return _DeselectAll(self, ...)
---    end
---end)
 
 InfoLog("Initialization Completed")
