@@ -1,26 +1,27 @@
 name = "Where's My Stuff, Dude? 2025"
 description = 'Highlights nearby containers that contain necessary items.\nJust hold item, or hover over ingredients in CraftMenu\n\nCompatible to Craft Pot mod. Hover over recipe ingredients to eg. find veggies'
 author = 'bormoshka'
-version = '2'
+version = '2.0.1'
 forumthread = ''
 api_version = 10
 api_version_dst = 10 -- correct api version added
 priority = -2221 -- has to be this low to load after Craft Pot mod
-dont_starve_compatible = true
-reign_of_giants_compatible = true
-shipwrecked_compatible = true
+
 dst_compatible = true
 all_clients_require_mod = true -- client_only_mod does not work =/
 client_only_mod = false
-server_filter_tags = {}
+
+server_filter_tags = {
+    "highlighting"
+}
 
 icon_atlas = 'atlas.xml'
 icon = 'icon.tex'
 
 configuration_options = {
     {
-        name = "LOG_LEVEL",
-        label = "Debug Logging",
+        name = "log_level_client",
+        label = "Verbose Logging for client",
         options = {
             { description = "TRACE", data = 12 },
             { description = "DEBUG", data = 7 },
@@ -29,16 +30,16 @@ configuration_options = {
         },
         default = 0
     },
-
     {
-        name = "use_gamepad",
-        label = "Gamepad support",
-        hover = "Recipe ingredients highlighting and other features for gamepad?",
+        name = "log_level_server",
+        label = "Verbose Logging for server",
         options = {
-            { description = "Disabled", data = false },
-            { description = "Enabled", data = true },
+            { description = "TRACE", data = 12 },
+            { description = "DEBUG", data = 7 },
+            { description = "INFO", data = 3 },
+            { description = "Disabled", data = 0 }
         },
-        default = true,
+        default = 0
     },
     {
         name = "search_radius",
@@ -74,6 +75,7 @@ configuration_options = {
             { description = "80", data = 80 },
             { description = "100", data = 100 },
             { description = "200", data = 200 },
+            { description = "500", data = 500 },
         },
         default = 50,
     },
