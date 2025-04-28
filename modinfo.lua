@@ -1,7 +1,7 @@
 name = "Where's My Stuff, Dude? 2025"
-description = 'Highlights nearby containers that contain necessary items.\nJust hold item, or hover over ingredients in CraftMenu\n\nCompatible to Craft Pot mod. Hover over recipe ingredients to eg. find veggies'
+description = ''
 author = 'bormoshka'
-version = '2.0.1'
+version = '2.0.2'
 forumthread = ''
 api_version = 10
 api_version_dst = 10 -- correct api version added

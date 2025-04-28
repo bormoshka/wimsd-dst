@@ -2,6 +2,7 @@ GLOBAL.require "mathutil"
 GLOBAL.require "json"
 local json = GLOBAL.json
 local cooking = GLOBAL.require("cooking")
+
 --------------------------------------------
 -- Логгирование НАЧАЛО
 --------------------------------------------
@@ -368,16 +369,21 @@ local function SearchForContainers(player, items, tags)
 end
 
 local function GetEntityByNetID(net_id)
-    return network_id_cache[net_id] or (function()
-        -- Резервный поиск (только при необходимости)
+    local entity = network_id_cache[net_id]
+    if entity then
+        logger:Trace("Entity found in cache by NetID:", net_id, "entity is valid:", entity:IsValid())
+    end
+    if not entity or not entity:IsValid() then
         for _, ent in pairs(GLOBAL.Ents) do
             if ent.Network and ent.Network:GetNetworkID() == net_id then
                 network_id_cache[net_id] = ent -- Добавить в кеш
+                logger:Trace("Entity found in GLOBAL.Ents by NetID:", net_id)
                 return ent
             end
         end
         return nil
-    end)()
+    end
+    return entity
 end
 
 --------------------------------------------
@@ -445,8 +451,13 @@ AddClientModRPCHandler(MOD_NAMESPACE, WISMD_RETURN_RPC, function(jsonified_chunk
         -- Поиск в кеше (O(1) вместо O(n))
         local ent = GetEntityByNetID(net_id)
 
-        if not ent or not ent:IsValid() then
+        if not ent then
             logger:Debug("Entity not found for NetID:", net_id)
+            return false
+        end
+
+        if not ent:IsValid() then
+            logger:Debug("Entity is not valid:", net_id)
             return false
         end
 
@@ -620,7 +631,18 @@ end
 --------------------------------------------
 -- Клиентский код
 --------------------------------------------
--- Клиентская часть
+-- Добавить в обработчики смены мира
+env.AddSimPostInit(function()
+    GLOBAL.TheWorld:ListenForEvent("playeractivated", function(_, player)
+        if player == GLOBAL.ThePlayer then
+            logger:Debug("Player activated in new world - resetting caches")
+            network_id_cache = {}
+            tracked_entities = {}
+            RegisterListeners() -- Перерегистрируем обработчики на новом мире
+        end
+    end)
+end)
+
 env.AddPlayerPostInit(function(inst)
     -- Ждем инициализации игрока
     inst:DoTaskInTime(2, function()
@@ -643,24 +665,29 @@ env.AddPlayerPostInit(function(inst)
     end)
 end)
 
-local function OnNetworkIDChanged(ent, old_id, new_id)
-    network_id_cache[old_id] = nil
-    network_id_cache[new_id] = ent
-end
+--local function OnNetworkIDChanged(ent, old_id, new_id)
+--    if old_id ~= nil then
+--        network_id_cache[old_id] = nil
+--    end
+--    if new_id ~= nil then
+--        network_id_cache[new_id] = ent
+--    end
+--end
 
 -- Для всех сущностей с компонентом Network:
-env.AddComponentPostInit("network", function(self)
-    print("Add ComponentPostInit for network")
-    if not GLOBAL.TheWorld then
-        return
-    end -- Добавьте проверку
-
-    local old_SetNetworkID = self.SetNetworkID
-    function self:SetNetworkID(id)
-        OnNetworkIDChanged(self.inst, self:GetNetworkID(), id)
-        return old_SetNetworkID(self, id)
-    end
-end)
+--env.AddComponentPostInit("network", function(self)
+--    logger:Debug("Add ComponentPostInit for network")
+--    if not GLOBAL.TheWorld then
+--        return
+--    end
+--
+--    local old_SetNetworkID = self.SetNetworkID
+--    function self:SetNetworkID(id)
+--        logger:Debug("Setting network ID:", id)
+--        OnNetworkIDChanged(self.inst, self:GetNetworkID(), id)
+--        return old_SetNetworkID(self, id)
+--    end
+--end)
 -- inventory
 
 if GLOBAL.TheNet:GetIsServer() then
